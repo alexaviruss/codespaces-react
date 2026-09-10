@@ -2,12 +2,12 @@ import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  signInWithPopup, 
   signOut 
 } from "firebase/auth";
 import { 
-  getFirestore, 
-  enableIndexedDbPersistence 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -24,16 +24,13 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Services
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Enable Firestore Offline Persistence
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === "failed-precondition") {
-    console.warn("Multiple tabs open, persistence enabled in first tab only.");
-  } else if (err.code === "unimplemented") {
-    console.warn("The current browser does not support offline persistence.");
-  }
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
 });
 
+// Helper functions exported for components
 export const logoutUser = () => signOut(auth);
