@@ -1,28 +1,30 @@
-import './App.css';
+import React from "react";
+import { BrowserRouter as Router } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { AuthProvider } from "./context/AuthContext";
+import AppRoutes from "./routes/AppRoutes";
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src="Octocat.png" className="App-logo" alt="logo" />
-        <p>
-          GitHub Codespaces <span className="heart">♥️</span> React
-        </p>
-        <p className="small">
-          Edit <code>src/App.jsx</code> and save to reload.
-        </p>
-        <p>
-          <a
-            className="App-link"
-            href="https://reactjs.org"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Learn React
-          </a>
-        </p>
-      </header>
-    </div>
+    <Router>
+      <AuthProvider>
+        <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
+          <AppRoutes />
+          <Toaster 
+            position="top-center" 
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: '#1e293b',
+                color: '#fff',
+                borderRadius: '12px',
+                padding: '12px 16px',
+              },
+            }}
+          />
+        </div>
+      </AuthProvider>
+    </Router>
   );
 }
 
