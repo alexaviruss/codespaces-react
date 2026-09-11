@@ -6,6 +6,7 @@ import PullToRefresh from "../components/common/PullToRefresh";
 import { DashboardSkeleton } from "../components/common/SkeletonLoader";
 import SummaryCard from "../components/analytics/SummaryCard";
 import BudgetProgressBar from "../components/analytics/BudgetProgressBar";
+import SpendingChart from "../components/analytics/SpendingChart";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../services/firebase";
 import { collection, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
@@ -155,6 +156,9 @@ const Dashboard = () => {
               subtitle="Transactions"
             />
           </div>
+
+          {/* Spending Chart */}
+          <SpendingChart expenses={expenses} />
 
           {/* Recent Transactions Section */}
           <div className="rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-100 dark:border-slate-700">
