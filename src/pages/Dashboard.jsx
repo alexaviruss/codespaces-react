@@ -84,6 +84,22 @@ const Dashboard = () => {
     }
   }, [expenses, monthlyBudget, alertShown]);
 
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    try {
+      // Simulate data refresh
+      setLoading(true);
+      // The real-time listeners will automatically update the data
+      setTimeout(() => {
+        setLoading(false);
+        toast.success("Data refreshed!", { duration: 2000 });
+      }, 500);
+    } catch (error) {
+      toast.error("Failed to refresh data");
+      setLoading(false);
+    }
+  }, []);
+
   const totalSpent = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
   const totalLent = udhaariList
     .filter((i) => i.type === "Lent" && i.status === "Pending")
