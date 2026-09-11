@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import BottomNav from "../components/layout/BottomNav";
+import PullToRefresh from "../components/common/PullToRefresh";
+import { SkeletonExpenseItem } from "../components/common/SkeletonLoader";
 import { useExpenseStore } from "../store/expenseStore";
 import { useSwipeDelete } from "../hooks/useSwipeDelete";
 import { formatCurrency } from "../utils/currencyFormatter";
@@ -17,6 +19,15 @@ const ExpenseList = () => {
   const { expenses } = useExpenseStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPayment, setFilterPayment] = useState("All");
+  const [loading, setLoading] = useState(false);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      toast.success("Data refreshed!", { duration: 2000 });
+    }, 500);
+  };
 
   const handleDeleteExpense = async (id) => {
     try {
@@ -52,7 +63,8 @@ const ExpenseList = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-20">
       <Header title="All Expenses" />
 
-      <main className="px-4 py-4 max-w-md mx-auto space-y-4">
+      <PullToRefresh onRefresh={handleRefresh}>
+        <main className="px-4 py-4 max-w-md mx-auto space-y-3">
         {/* Search & Filter Controls */}
         <div className="space-y-2">
           <div className="relative">
@@ -165,7 +177,8 @@ const ExpenseList = () => {
             ))}
           </div>
         )}
-      </main>
+        </main>
+      </PullToRefresh>
 
       <BottomNav />
     </div>

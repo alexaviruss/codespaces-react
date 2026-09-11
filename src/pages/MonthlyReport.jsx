@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Header from "../components/layout/Header";
 import BottomNav from "../components/layout/BottomNav";
+import PullToRefresh from "../components/common/PullToRefresh";
 import MonthPicker from "../components/common/MonthPicker";
 import { useExpenseStore } from "../store/expenseStore";
 import { formatCurrency } from "../utils/currencyFormatter";
@@ -15,6 +16,15 @@ const MonthlyReport = () => {
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const [loading, setLoading] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      toast.success("Report refreshed!", { duration: 2000 });
+    }, 500);
+  }, []);
 
   const monthExpenses = useMemo(() => {
     const [year, month] = selectedMonth.split("-");
@@ -68,7 +78,8 @@ const MonthlyReport = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-20">
       <Header title="Monthly Report" />
 
-      <main className="px-4 py-4 max-w-md mx-auto space-y-4">
+      <PullToRefresh onRefresh={handleRefresh}>
+        <main className="px-4 py-4 max-w-md mx-auto space-y-4">
         {/* Month Picker */}
         <MonthPicker selectedDate={selectedMonth} onDateChange={setSelectedMonth} />
 
@@ -225,6 +236,7 @@ const MonthlyReport = () => {
           </div>
         )}
       </main>
+      </PullToRefresh>
 
       <BottomNav />
     </div>

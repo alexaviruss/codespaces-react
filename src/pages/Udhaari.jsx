@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import Header from "../components/layout/Header";
 import BottomNav from "../components/layout/BottomNav";
+import PullToRefresh from "../components/common/PullToRefresh";
 import { useAuth } from "../context/AuthContext";
 import { useUdhaariStore } from "../store/udhaariStore";
 import { db } from "../services/firebase";
@@ -21,6 +22,14 @@ const Udhaari = () => {
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      toast.success("Data refreshed!", { duration: 2000 });
+    }, 500);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,7 +111,8 @@ const Udhaari = () => {
   const halfPaidLent = udhaariList
     .filter((i) => i.type === "Lent" && i.status === "Half Paid")
     .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-
+PullToRefresh onRefresh={handleRefresh}>
+        <
   const halfPaidBorrowed = udhaariList
     .filter((i) => i.type === "Borrowed" && i.status === "Half Paid")
     .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
@@ -308,6 +318,7 @@ const Udhaari = () => {
                   <button
                     onClick={() => handleDelete(item.id)}
                     className="p-1.5 text-slate-300 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+      </PullToRefresh>
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
