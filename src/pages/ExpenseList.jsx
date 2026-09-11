@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Header from "../components/layout/Header";
 import BottomNav from "../components/layout/BottomNav";
 import PullToRefresh from "../components/common/PullToRefresh";
-import { SkeletonExpenseItem } from "../components/common/SkeletonLoader";
 import { useExpenseStore } from "../store/expenseStore";
 import { useSwipeDelete } from "../hooks/useSwipeDelete";
 import { formatCurrency } from "../utils/currencyFormatter";
 import { formatDate } from "../utils/dateHelpers";
-import { Search, Filter, Trash2, Edit2 } from "lucide-react";
+import { Search, Trash2, Edit2 } from "lucide-react";
 import { db } from "../services/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
@@ -48,10 +47,12 @@ const ExpenseList = () => {
   } = useSwipeDelete(handleDeleteExpense);
 
   const filteredExpenses = expenses.filter((exp) => {
-    const categoryName = exp.category === "Other" ? exp.customCategory : exp.category;
+    // Guard against undefined category/customCategory - was crashing the page.
+    const categoryName = (exp.category === "Other" ? exp.customCategory : exp.category) || "";
+    const note = exp.note || "";
     const matchesSearch =
       categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (exp.note && exp.note.toLowerCase().includes(searchTerm.toLowerCase()));
+      note.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesPayment =
       filterPayment === "All" || exp.paymentMode === filterPayment;
@@ -65,7 +66,6 @@ const ExpenseList = () => {
 
       <PullToRefresh onRefresh={handleRefresh}>
         <main className="px-4 py-4 max-w-md mx-auto space-y-3">
-        {/* Search & Filter Controls */}
         <div className="space-y-2">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
@@ -95,7 +95,6 @@ const ExpenseList = () => {
           </div>
         </div>
 
-        {/* Expense Cards List */}
         {filteredExpenses.length === 0 ? (
           <div className="rounded-2xl bg-white dark:bg-slate-800 p-8 text-center shadow-sm border border-slate-100 dark:border-slate-700">
             <p className="text-sm text-slate-400 dark:text-slate-500">No expenses found.</p>
@@ -110,7 +109,6 @@ const ExpenseList = () => {
                 onTouchMove={(e) => handleTouchMove(e, exp.id)}
                 onTouchEnd={(e) => handleTouchEnd(e, exp.id)}
               >
-                {/* Delete Action Overlay */}
                 {swipedId === exp.id && (
                   <div className="absolute inset-0 flex items-center justify-end gap-2 bg-red-50 dark:bg-red-900/20 z-30">
                     <button
@@ -128,7 +126,6 @@ const ExpenseList = () => {
                   </div>
                 )}
 
-                {/* Expense Card */}
                 <div
                   className={`flex items-center justify-between rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-100 dark:border-slate-700 transition-transform ${
                     swipedId === exp.id ? "translate-x-0" : ""
@@ -137,7 +134,7 @@ const ExpenseList = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                        {exp.category === "Other" ? exp.customCategory : exp.category}
+                        {exp.category === "Other" ? (exp.customCategory || "Other") : (exp.category || "Uncategorized")}
                       </h3>
                       <span className="rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">
                         {exp.paymentMode}

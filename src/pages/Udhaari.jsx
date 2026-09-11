@@ -8,8 +8,12 @@ import { db } from "../services/firebase";
 import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { formatCurrency } from "../utils/currencyFormatter";
 import { formatDate, getCurrentDate } from "../utils/dateHelpers";
+import { getPaidAmount, getRemainingAmount, deriveStatus } from "../utils/udhaariHelpers";
 import toast from "react-hot-toast";
-import { ArrowUpRight, ArrowDownLeft, CheckCircle, Trash2, Plus, User, Calendar, FileText, IndianRupee, Split } from "lucide-react";
+import {
+  ArrowUpRight, ArrowDownLeft, CheckCircle, RotateCcw, Trash2, Plus,
+  User, Calendar, FileText, IndianRupee, Wallet, Edit2, X,
+} from "lucide-react";
 
 const Udhaari = () => {
   const { currentUser } = useAuth();
@@ -23,6 +27,14 @@ const Udhaari = () => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
+  // Editing state
+  const [editingId, setEditingId] = useState(null);
+  const [editingPaidAmount, setEditingPaidAmount] = useState(0);
+
+  // Inline "record a payment" state
+  const [paymentOpenId, setPaymentOpenId] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+
   const handleRefresh = useCallback(async () => {
     setLoading(true);
     setTimeout(() => {
@@ -31,6 +43,29 @@ const Udhaari = () => {
     }, 500);
   }, []);
 
+  const resetForm = () => {
+    setType("Lent");
+    setPersonName("");
+    setAmount("");
+    setDate(getCurrentDate());
+    setNote("");
+    setEditingId(null);
+    setEditingPaidAmount(0);
+    setShowForm(false);
+  };
+
+  const handleEdit = (item) => {
+    setType(item.type);
+    setPersonName(item.personName);
+    setAmount(String(item.amount));
+    setDate(item.date);
+    setNote(item.note || "");
+    setEditingId(item.id);
+    setEditingPaidAmount(getPaidAmount(item));
+    setPaymentOpenId(null);
+    setShowForm(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!personName.trim() || !amount || Number(amount) <= 0) {
@@ -38,55 +73,94 @@ const Udhaari = () => {
       return;
     }
 
+    if (editingId && Number(amount) < editingPaidAmount) {
+      toast.error(
+        `New amount can't be less than what's already paid (${formatCurrency(editingPaidAmount)})`
+      );
+      return;
+    }
+
     try {
       setLoading(true);
-      await addDoc(collection(db, "users", currentUser.uid, "udhaari"), {
-        type,
-        personName: personName.trim(),
-        amount: Number(amount),
-        date,
-        note: note.trim(),
-        status: "Pending",
-        createdAt: serverTimestamp(),
-      });
 
-      toast.success("Udhaari record added!");
-      setPersonName("");
-      setAmount("");
-      setNote("");
-      setShowForm(false);
+      if (editingId) {
+        const newStatus = deriveStatus({ amount: Number(amount), paidAmount: editingPaidAmount });
+        await updateDoc(doc(db, "users", currentUser.uid, "udhaari", editingId), {
+          type,
+          personName: personName.trim(),
+          amount: Number(amount),
+          date,
+          note: note.trim(),
+          status: newStatus,
+        });
+        toast.success("Udhaari record updated!");
+      } else {
+        await addDoc(collection(db, "users", currentUser.uid, "udhaari"), {
+          type,
+          personName: personName.trim(),
+          amount: Number(amount),
+          paidAmount: 0,
+          date,
+          note: note.trim(),
+          status: "Pending",
+          createdAt: serverTimestamp(),
+        });
+        toast.success("Udhaari record added!");
+      }
+
+      resetForm();
     } catch (error) {
-      toast.error("Failed to add Udhaari record");
+      toast.error(editingId ? "Failed to update record" : "Failed to add Udhaari record");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleStatus = async (id, currentStatus) => {
-    let newStatus = "Pending";
-    if (currentStatus === "Pending") {
-      newStatus = "Half Paid";
-    } else if (currentStatus === "Half Paid") {
-      newStatus = "Settled";
+  const handleOpenPayment = (id) => {
+    setPaymentOpenId(paymentOpenId === id ? null : id);
+    setPaymentAmount("");
+  };
+
+  const handleAddPayment = async (item) => {
+    const value = Number(paymentAmount);
+    const remaining = getRemainingAmount(item);
+
+    if (!value || value <= 0) {
+      toast.error("Enter a valid payment amount");
+      return;
     }
+    if (value > remaining) {
+      toast.error(`Payment can't exceed the remaining ${formatCurrency(remaining)}`);
+      return;
+    }
+
     try {
-      await updateDoc(doc(db, "users", currentUser.uid, "udhaari", id), {
+      const newPaid = getPaidAmount(item) + value;
+      const newStatus = deriveStatus({ amount: item.amount, paidAmount: newPaid });
+      await updateDoc(doc(db, "users", currentUser.uid, "udhaari", item.id), {
+        paidAmount: newPaid,
         status: newStatus,
       });
-      toast.success(`Marked as ${newStatus}`);
+      toast.success(
+        newStatus === "Settled" ? "Fully settled!" : `Payment of ${formatCurrency(value)} recorded`
+      );
+      setPaymentOpenId(null);
+      setPaymentAmount("");
     } catch (error) {
-      toast.error("Failed to update status");
+      toast.error("Failed to record payment");
     }
   };
 
-  const handleHalfPaid = async (id) => {
+  const handleToggleSettled = async (item) => {
+    const isSettled = deriveStatus(item) === "Settled";
     try {
-      await updateDoc(doc(db, "users", currentUser.uid, "udhaari", id), {
-        status: "Half Paid",
+      await updateDoc(doc(db, "users", currentUser.uid, "udhaari", item.id), {
+        paidAmount: isSettled ? 0 : item.amount,
+        status: isSettled ? "Pending" : "Settled",
       });
-      toast.success("Marked as Half Paid");
+      toast.success(isSettled ? "Reopened" : "Marked as Settled");
     } catch (error) {
-      toast.error("Failed to mark as half paid");
+      toast.error("Failed to update status");
     }
   };
 
@@ -101,20 +175,12 @@ const Udhaari = () => {
   };
 
   const totalLent = udhaariList
-    .filter((i) => i.type === "Lent" && i.status === "Pending")
-    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+    .filter((i) => i.type === "Lent" && deriveStatus(i) !== "Settled")
+    .reduce((acc, curr) => acc + getRemainingAmount(curr), 0);
 
   const totalBorrowed = udhaariList
-    .filter((i) => i.type === "Borrowed" && i.status === "Pending")
-    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-
-  const halfPaidLent = udhaariList
-    .filter((i) => i.type === "Lent" && i.status === "Half Paid")
-    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-
-  const halfPaidBorrowed = udhaariList
-    .filter((i) => i.type === "Borrowed" && i.status === "Half Paid")
-    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+    .filter((i) => i.type === "Borrowed" && deriveStatus(i) !== "Settled")
+    .reduce((acc, curr) => acc + getRemainingAmount(curr), 0);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-20">
@@ -131,11 +197,6 @@ const Udhaari = () => {
               <p className="mt-2 text-xl font-bold text-emerald-900 dark:text-emerald-300">
                 {formatCurrency(totalLent)}
               </p>
-              {halfPaidLent > 0 && (
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                  Half Paid: {formatCurrency(halfPaidLent)}
-                </p>
-              )}
             </div>
 
             <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-700 p-4">
@@ -145,17 +206,12 @@ const Udhaari = () => {
               <p className="mt-2 text-xl font-bold text-amber-900 dark:text-amber-300">
                 {formatCurrency(totalBorrowed)}
               </p>
-              {halfPaidBorrowed > 0 && (
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-1">
-                  Half Paid: {formatCurrency(halfPaidBorrowed)}
-                </p>
-              )}
             </div>
           </div>
 
           {/* Toggle Form Button */}
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-700 py-2.5 text-sm font-semibold text-white shadow-sm transition-all"
           >
             <Plus className="h-4 w-4" />
@@ -165,6 +221,12 @@ const Udhaari = () => {
           {/* Form Drawer / Container */}
           {showForm && (
             <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+              {editingId && (
+                <p className="text-xs font-semibold text-teal-600 dark:text-teal-400">
+                  Editing record — payment history is kept as-is.
+                </p>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -172,7 +234,7 @@ const Udhaari = () => {
                   className={`rounded-xl py-2 text-xs font-bold transition-all ${
                     type === "Lent"
                       ? "bg-emerald-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-600"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                   }`}
                 >
                   Lent (Diye hain)
@@ -183,7 +245,7 @@ const Udhaari = () => {
                   className={`rounded-xl py-2 text-xs font-bold transition-all ${
                     type === "Borrowed"
                       ? "bg-amber-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-600"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                   }`}
                 >
                   Borrowed (Liye hain)
@@ -243,7 +305,7 @@ const Udhaari = () => {
                 disabled={loading}
                 className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 py-2.5 text-xs font-semibold text-white transition-all"
               >
-                {loading ? "Saving..." : "Save Record"}
+                {loading ? "Saving..." : editingId ? "Update Record" : "Save Record"}
               </button>
             </form>
           )}
@@ -255,76 +317,124 @@ const Udhaari = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {udhaariList.map((item) => (
-                <div
-                  key={item.id}
-                  className={`flex items-center justify-between rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border transition-all ${
-                    item.status === "Settled" ? "opacity-50 border-slate-100 dark:border-slate-700" : "border-slate-200 dark:border-slate-700"
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          item.type === "Lent"
-                            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                            : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                        }`}
-                      >
-                        {item.type}
-                      </span>
-                      <h3 className="text-sm font-bold text-slate-800 dark:text-white">{item.personName}</h3>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                      {formatDate(item.date)} {item.note ? `• ${item.note}` : ""}
-                    </p>
-                  </div>
+              {udhaariList.map((item) => {
+                const status = deriveStatus(item);
+                const paid = getPaidAmount(item);
+                const remaining = getRemainingAmount(item);
+                const isSettled = status === "Settled";
 
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">
-                        {formatCurrency(item.amount)}
-                      </p>
-                      <p className={`text-[10px] font-semibold ${
-                        item.status === "Half Paid" ? "text-amber-600 dark:text-amber-400" :
-                        item.status === "Settled" ? "text-emerald-600 dark:text-emerald-400" :
-                        "text-slate-400 dark:text-slate-500"
-                      }`}>
-                        {item.status}
-                      </p>
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border transition-all ${
+                      isSettled ? "opacity-60 border-slate-100 dark:border-slate-700" : "border-slate-200 dark:border-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                              item.type === "Lent"
+                                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                                : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                            }`}
+                          >
+                            {item.type}
+                          </span>
+                          <h3 className="text-sm font-bold text-slate-800 dark:text-white">{item.personName}</h3>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                          {formatDate(item.date)} {item.note ? `• ${item.note}` : ""}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-slate-900 dark:text-white">
+                            {formatCurrency(remaining)} <span className="font-normal text-slate-400 dark:text-slate-500 text-xs">left</span>
+                          </p>
+                          <p className={`text-[10px] font-semibold ${
+                            status === "Half Paid" ? "text-amber-600 dark:text-amber-400" :
+                            status === "Settled" ? "text-emerald-600 dark:text-emerald-400" :
+                            "text-slate-400 dark:text-slate-500"
+                          }`}>
+                            {status}{paid > 0 && !isSettled ? ` • paid ${formatCurrency(paid)}` : ""}
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
-                    {item.status !== "Settled" && (
+                    <div className="mt-3 flex items-center justify-end gap-1 border-t border-slate-50 dark:border-slate-700 pt-2">
+                      {!isSettled && (
+                        <button
+                          onClick={() => handleOpenPayment(item.id)}
+                          className="p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
+                          title="Record a Payment"
+                        >
+                          <Wallet className="h-5 w-5" />
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => handleHalfPaid(item.id)}
-                        className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
-                        title="Mark as Half Paid"
+                        onClick={() => handleEdit(item)}
+                        className="p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
+                        title="Edit"
                       >
-                        <Split className="h-5 w-5" />
+                        <Edit2 className="h-4 w-4" />
                       </button>
+
+                      <button
+                        onClick={() => handleToggleSettled(item)}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          isSettled
+                            ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20"
+                            : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        }`}
+                        title={isSettled ? "Reopen" : "Mark as Settled"}
+                      >
+                        {isSettled ? <RotateCcw className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="p-1.5 text-slate-300 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {paymentOpenId === item.id && (
+                      <div className="mt-2 flex items-center gap-2 rounded-xl bg-slate-50 dark:bg-slate-700 p-2">
+                        <div className="relative flex-1">
+                          <IndianRupee className="absolute left-2 top-2.5 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                          <input
+                            type="number"
+                            autoFocus
+                            placeholder={`Up to ${remaining}`}
+                            value={paymentAmount}
+                            onChange={(e) => setPaymentAmount(e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1.5 pl-7 pr-2 text-xs text-slate-900 dark:text-white focus:border-teal-600 focus:outline-none"
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleAddPayment(item)}
+                          className="rounded-lg bg-teal-600 hover:bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white"
+                        >
+                          Add
+                        </button>
+                        <button
+                          onClick={() => setPaymentOpenId(null)}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     )}
-
-                    <button
-                      onClick={() => handleToggleStatus(item.id, item.status)}
-                      className={`p-1.5 rounded-lg transition-colors ${
-                        item.status === "Settled"
-                          ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20"
-                          : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
-                      }`}
-                      title={item.status === "Settled" ? "Mark as Pending" : "Mark as Settled"}
-                    >
-                      <CheckCircle className="h-5 w-5" />
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="p-1.5 text-slate-300 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </main>
