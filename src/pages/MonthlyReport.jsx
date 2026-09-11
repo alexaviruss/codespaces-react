@@ -5,8 +5,8 @@ import MonthPicker from "../components/common/MonthPicker";
 import { useExpenseStore } from "../store/expenseStore";
 import { formatCurrency } from "../utils/currencyFormatter";
 import { useBudgetStore } from "../store/budgetStore";
-import { Download, TrendingUp, TrendingDown } from "lucide-react";
-import { exportToCSV, exportToJSON } from "../utils/exportData";
+import { Download, TrendingUp, TrendingDown, Printer } from "lucide-react";
+import { exportToCSV, exportToJSON, exportToPDF } from "../utils/exportData";
 import toast from "react-hot-toast";
 
 const MonthlyReport = () => {
@@ -55,6 +55,9 @@ const MonthlyReport = () => {
       } else if (format === "json") {
         exportToJSON(monthExpenses, monthlyBudget, []);
         toast.success("Exported to JSON!");
+      } else if (format === "html") {
+        exportToPDF(monthExpenses, monthlyBudget, []);
+        toast.success("Opening printable report...");
       }
     } catch (error) {
       toast.error("Export failed");
@@ -84,6 +87,14 @@ const MonthlyReport = () => {
           >
             <Download size={16} />
             JSON
+          </button>
+          <button
+            onClick={() => handleExport("html")}
+            className="flex-1 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl py-2 text-sm font-semibold transition-colors"
+            title="Print or save as PDF"
+          >
+            <Printer size={16} />
+            PDF
           </button>
         </div>
 

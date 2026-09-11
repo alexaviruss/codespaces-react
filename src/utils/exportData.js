@@ -89,87 +89,103 @@ export const exportToJSON = (expenses, monthlyBudget, udhaariList) => {
   document.body.removeChild(link);
 };
 
-// Generate PDF report (requires html2pdf library)
-export const exportToPDF = async (expenses, monthlyBudget, udhaariList) => {
-  try {
-    const html2pdf = window.html2pdf || (await import("html2pdf.js")).default;
+// Generate HTML report (can be printed as PDF)
+export const exportToPDF = (expenses, monthlyBudget, udhaariList) => {
+  const totalSpent = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const totalLent = udhaariList
+    .filter((i) => i.type === "Lent" && i.status === "Pending")
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const totalBorrowed = udhaariList
+    .filter((i) => i.type === "Borrowed" && i.status === "Pending")
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
-    const totalSpent = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-    const totalLent = udhaariList
-      .filter((i) => i.type === "Lent" && i.status === "Pending")
-      .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-    const totalBorrowed = udhaariList
-      .filter((i) => i.type === "Borrowed" && i.status === "Pending")
-      .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>PaisaTrack Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #14b8a6; }
+        h2 { color: #14b8a6; border-bottom: 2px solid #14b8a6; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f0f0f0; }
+        .summary { margin: 20px 0; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head>
+    <body>
+      <h1>🏦 PaisaTrack Report</h1>
+      <p>Generated on ${new Date().toLocaleString()}</p>
+      
+      <h2>Summary</h2>
+      <table>
+        <tr>
+          <td><strong>Total Spent</strong></td>
+          <td>₹${totalSpent.toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td><strong>Monthly Budget</strong></td>
+          <td>₹${monthlyBudget}</td>
+        </tr>
+        <tr>
+          <td><strong>Remaining</strong></td>
+          <td>₹${Math.max(0, monthlyBudget - totalSpent).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td><strong>Spent %</strong></td>
+          <td>${((totalSpent / monthlyBudget) * 100).toFixed(2)}%</td>
+        </tr>
+      </table>
 
-    const htmlContent = `
-      <div style="padding: 20px; font-family: Arial, sans-serif;">
-        <h1 style="color: #14b8a6;">PaisaTrack Report</h1>
-        <p style="color: #666;">Generated on ${new Date().toLocaleString()}</p>
-        
-        <h2 style="color: #14b8a6; border-bottom: 2px solid #14b8a6; padding-bottom: 10px;">Summary</h2>
-        <table style="width: 100%; margin-bottom: 20px;">
+      <h2>Top 10 Expenses</h2>
+      <table>
+        <thead>
           <tr>
-            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Total Spent</strong></td>
-            <td style="padding: 10px; border: 1px solid #ddd;">₹${totalSpent.toFixed(2)}</td>
+            <th>Date</th>
+            <th>Category</th>
+            <th>Amount</th>
+            <th>Mode</th>
+            <th>Notes</th>
           </tr>
-          <tr>
-            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Monthly Budget</strong></td>
-            <td style="padding: 10px; border: 1px solid #ddd;">₹${monthlyBudget}</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Remaining</strong></td>
-            <td style="padding: 10px; border: 1px solid #ddd;">₹${Math.max(0, monthlyBudget - totalSpent).toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Spent %</strong></td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${((totalSpent / monthlyBudget) * 100).toFixed(2)}%</td>
-          </tr>
-        </table>
-
-        <h2 style="color: #14b8a6; border-bottom: 2px solid #14b8a6; padding-bottom: 10px;">Top Expenses</h2>
-        <table style="width: 100%; margin-bottom: 20px;">
-          <thead>
-            <tr style="background-color: #f0f0f0;">
-              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Date</th>
-              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Category</th>
-              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Amount</th>
-              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Mode</th>
+        </thead>
+        <tbody>
+          ${expenses
+            .slice(0, 10)
+            .map(
+              (exp) => `
+            <tr>
+              <td>${exp.date}</td>
+              <td>${exp.category === "Other" ? exp.customCategory : exp.category}</td>
+              <td>₹${exp.amount}</td>
+              <td>${exp.paymentMode}</td>
+              <td>${exp.note || "-"}</td>
             </tr>
-          </thead>
-          <tbody>
-            ${expenses
-              .slice(0, 10)
-              .map(
-                (exp) => `
-              <tr>
-                <td style="padding: 10px; border: 1px solid #ddd;">${exp.date}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${
-                  exp.category === "Other" ? exp.customCategory : exp.category
-                }</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">₹${exp.amount}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${exp.paymentMode}</td>
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
 
-    const options = {
-      margin: 10,
-      filename: `paisa-track-${new Date().toISOString().split("T")[0]}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
-    };
+      <script>
+        // Auto-open print dialog when page loads
+        window.print();
+      </script>
+    </body>
+    </html>
+  `;
 
-    html2pdf().set(options).from(htmlContent).save();
-  } catch (error) {
-    console.error("PDF export error:", error);
-    alert("PDF export requires html2pdf library. Using JSON export instead.");
-    exportToJSON(expenses, monthlyBudget, udhaariList);
-  }
+  const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+
+  link.setAttribute("href", url);
+  link.setAttribute("download", `paisa-track-${new Date().toISOString().split("T")[0]}.html`);
+  link.style.visibility = "hidden";
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
