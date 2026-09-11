@@ -8,7 +8,7 @@ import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from "
 import { formatCurrency } from "../utils/currencyFormatter";
 import { formatDate, getCurrentDate } from "../utils/dateHelpers";
 import toast from "react-hot-toast";
-import { ArrowUpRight, ArrowDownLeft, CheckCircle, Trash2, Plus, User, Calendar, FileText, IndianRupee, HalfCircle } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, CheckCircle, Trash2, Plus, User, Calendar, FileText, IndianRupee, Split } from "lucide-react";
 
 const Udhaari = () => {
   const { currentUser } = useAuth();
@@ -100,11 +100,11 @@ const Udhaari = () => {
     .filter((i) => i.type === "Borrowed" && i.status === "Pending")
     .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
   const halfPaidLent = udhaariList
-    .filter((i) => i.type === \"Lent\" && i.status === \"Half Paid\")
+    .filter((i) => i.type === "Lent" && i.status === "Half Paid")
     .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
   const halfPaidBorrowed = udhaariList
-    .filter((i) => i.type === \"Borrowed\" && i.status === \"Half Paid\")
+    .filter((i) => i.type === "Borrowed" && i.status === "Half Paid")
     .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-20">
@@ -289,7 +289,7 @@ const Udhaari = () => {
                       className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                       title="Mark as Half Paid"
                     >
-                      <HalfCircle className="h-5 w-5" />
+                      <Split className="h-5 w-5" />
                     </button>
                   )}
 
