@@ -6,7 +6,6 @@ import PullToRefresh from "../components/common/PullToRefresh";
 import { DashboardSkeleton } from "../components/common/SkeletonLoader";
 import SummaryCard from "../components/analytics/SummaryCard";
 import BudgetProgressBar from "../components/analytics/BudgetProgressBar";
-import SpendingChart from "../components/analytics/SpendingChart";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../services/firebase";
 import { collection, query, onSnapshot, doc } from "firebase/firestore";
@@ -17,7 +16,7 @@ import { formatCurrency } from "../utils/currencyFormatter";
 import { formatDate } from "../utils/dateHelpers";
 import { checkBudgetAlert } from "../utils/budgetAlerts";
 import { sumRemainingByType } from "../utils/udhaariHelpers";
-import { TrendingDown, ArrowUpRight, ArrowDownLeft, Receipt } from "lucide-react";
+import { TrendingDown, ArrowUpRight, ArrowDownLeft, Receipt, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -32,9 +31,6 @@ const Dashboard = () => {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Budget is now realtime too - previously this only re-fetched on
-    // mount, so a budget change elsewhere didn't show up until you
-    // navigated away and back. onSnapshot fixes that.
     const userRef = doc(db, "users", currentUser.uid);
     const unsubscribeBudget = onSnapshot(userRef, (snap) => {
       if (snap.exists() && snap.data()?.profile?.monthlyBudget) {
@@ -82,8 +78,6 @@ const Dashboard = () => {
   const handleRefresh = useCallback(async () => {
     try {
       setLoading(true);
-      // Listeners are realtime now, so this is just a visual pause;
-      // data is already current the moment it changes anywhere.
       setTimeout(() => {
         setLoading(false);
         toast.success("Data refreshed!", { duration: 2000 });
@@ -95,7 +89,6 @@ const Dashboard = () => {
   }, []);
 
   const totalSpent = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-  // Now uses remaining balances (accounts for partial payments), not just "Pending" items.
   const totalLent = sumRemainingByType(udhaariList, "Lent");
   const totalBorrowed = sumRemainingByType(udhaariList, "Borrowed");
 
@@ -148,7 +141,23 @@ const Dashboard = () => {
             />
           </div>
 
-          <SpendingChart expenses={expenses} />
+          {/* SpendingChart moved to /analytics - Dashboard now links there
+              instead of duplicating the chart. */}
+          <Link
+            to="/analytics"
+            className="flex items-center justify-between rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-100 dark:border-slate-700 hover:border-teal-200 dark:hover:border-teal-700 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400">
+                <BarChart3 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-white">View Analytics</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Spending trends & category breakdown</p>
+              </div>
+            </div>
+            <span className="text-teal-600 dark:text-teal-400 text-lg">→</span>
+          </Link>
 
           <div className="rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-100 dark:border-slate-700">
             <div className="flex items-center justify-between mb-3">
