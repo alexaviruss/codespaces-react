@@ -1,10 +1,20 @@
 import React from "react";
 import { BrowserRouter as Router } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
 import AppRoutes from "./routes/AppRoutes";
+import FAB from "./components/common/FAB";
 
+// Small wrapper so FAB can check auth state - it needs to live inside
+// AuthProvider, and it should only show once the user is logged in
+// (otherwise it'd appear on /login and /signup too, linking to a
+// protected route they can't access yet).
+const GlobalFAB = () => {
+  const { currentUser } = useAuth();
+  if (!currentUser) return null;
+  return <FAB />;
+};
 
 function App() {
   return (
@@ -13,8 +23,9 @@ function App() {
         <DarkModeProvider>
           <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans antialiased">
             <AppRoutes />
-            <Toaster 
-              position="top-center" 
+            <GlobalFAB />
+            <Toaster
+              position="top-center"
               toastOptions={{
                 duration: 3000,
                 style: {

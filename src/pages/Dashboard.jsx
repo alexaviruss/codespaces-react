@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Header from "../components/layout/Header";
 import BottomNav from "../components/layout/BottomNav";
-import FAB from "../components/common/FAB";
 import PullToRefresh from "../components/common/PullToRefresh";
 import { DashboardSkeleton } from "../components/common/SkeletonLoader";
 import SummaryCard from "../components/analytics/SummaryCard";
@@ -16,7 +15,15 @@ import { formatCurrency } from "../utils/currencyFormatter";
 import { formatDate } from "../utils/dateHelpers";
 import { checkBudgetAlert } from "../utils/budgetAlerts";
 import { sumRemainingByType } from "../utils/udhaariHelpers";
-import { TrendingDown, ArrowUpRight, ArrowDownLeft, Receipt, BarChart3 } from "lucide-react";
+import {
+  TrendingDown,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Receipt,
+  BarChart3,
+  ChevronRight,
+  CreditCard
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -80,7 +87,7 @@ const Dashboard = () => {
       setLoading(true);
       setTimeout(() => {
         setLoading(false);
-        toast.success("Data refreshed!", { duration: 2000 });
+        toast.success("Data refreshed!", { duration: 1500 });
       }, 500);
     } catch (error) {
       toast.error("Failed to refresh data");
@@ -88,13 +95,16 @@ const Dashboard = () => {
     }
   }, []);
 
-  const totalSpent = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-  const totalLent = sumRemainingByType(udhaariList, "Lent");
-  const totalBorrowed = sumRemainingByType(udhaariList, "Borrowed");
+  const totalSpent = useMemo(
+    () => expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0),
+    [expenses]
+  );
+  const totalLent = useMemo(() => sumRemainingByType(udhaariList, "Lent"), [udhaariList]);
+  const totalBorrowed = useMemo(() => sumRemainingByType(udhaariList, "Borrowed"), [udhaariList]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-20">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24">
         <Header title="Dashboard" />
         <DashboardSkeleton />
         <BottomNav />
@@ -103,83 +113,110 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-24 font-sans selection:bg-teal-500 selection:text-white">
       <Header title="Dashboard" />
 
       <PullToRefresh onRefresh={handleRefresh}>
-        <main className="px-4 py-4 space-y-4 max-w-md mx-auto">
-          <BudgetProgressBar spent={totalSpent} budget={monthlyBudget} />
+        <main className="px-4 py-5 space-y-5 max-w-lg mx-auto">
+          {/* Monthly Budget Card Wrapper */}
+          <div className="rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm border border-slate-200/80 dark:border-slate-800">
+            <BudgetProgressBar spent={totalSpent} budget={monthlyBudget} />
+          </div>
 
+          {/* Metrics Grid */}
           <div className="grid grid-cols-2 gap-3">
             <SummaryCard
               title="Total Spent"
               amount={totalSpent}
               icon={TrendingDown}
-              colorClass="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
+              colorClass="bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
             />
             <SummaryCard
               title="To Receive"
               amount={totalLent}
               icon={ArrowUpRight}
-              colorClass="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
+              colorClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
               subtitle="Lent Udhaari"
             />
             <SummaryCard
               title="To Pay"
               amount={totalBorrowed}
               icon={ArrowDownLeft}
-              colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
+              colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
               subtitle="Borrowed Udhaari"
             />
             <SummaryCard
               title="Total Items"
               amount={expenses.length}
               icon={Receipt}
-              colorClass="bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
+              colorClass="bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20"
               subtitle="Transactions"
               isCurrency={false}
             />
           </div>
 
-          {/* SpendingChart moved to /analytics - Dashboard now links there
-              instead of duplicating the chart. */}
+          {/* Navigation Banner for Analytics */}
           <Link
             to="/analytics"
-            className="flex items-center justify-between rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-100 dark:border-slate-700 hover:border-teal-200 dark:hover:border-teal-700 transition-colors"
+            className="group relative flex items-center justify-between rounded-2xl bg-gradient-to-r from-teal-500/10 via-slate-50 to-white dark:from-teal-950/30 dark:via-slate-900 dark:to-slate-900 p-4 shadow-sm border border-slate-200/80 dark:border-slate-800 hover:border-teal-500/50 dark:hover:border-teal-500/40 transition-all duration-200 active:scale-[0.99]"
           >
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md shadow-teal-600/20">
                 <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-white">View Analytics</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Spending trends & category breakdown</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                  View Analytics
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Spending trends & category breakdown
+                </p>
               </div>
             </div>
-            <span className="text-teal-600 dark:text-teal-400 text-lg">→</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 group-hover:bg-teal-600 group-hover:text-white transition-all">
+              <ChevronRight className="h-4 w-4" />
+            </div>
           </Link>
 
-          <div className="rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-100 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-slate-800 dark:text-white">Recent Transactions</h2>
-              <Link to="/expenses" className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline">
-                View All
+          {/* Recent Transactions List */}
+          <div className="rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Recent Transactions
+              </h2>
+              <Link
+                to="/expenses"
+                className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 flex items-center gap-0.5"
+              >
+                View All <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
 
             {expenses.length === 0 ? (
-              <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-4">No expenses added yet.</p>
+              <div className="py-8 text-center space-y-2">
+                <div className="inline-flex p-3 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  No expenses added yet.
+                </p>
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {expenses.slice(0, 5).map((exp) => (
-                  <div key={exp.id} className="flex items-center justify-between border-b border-slate-50 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                  <div
+                    key={exp.id}
+                    className="flex items-center justify-between py-2.5 first:pt-1 last:pb-0 group"
+                  >
+                    <div className="space-y-0.5 min-w-0 pr-2">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {exp.category === "Other" ? exp.customCategory : exp.category}
                       </p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">{formatDate(exp.date)} • {exp.paymentMode}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {formatDate(exp.date)} <span className="opacity-40">•</span> {exp.paymentMode}
+                      </p>
                     </div>
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">
+                    <span className="text-xs font-black text-slate-900 dark:text-white shrink-0">
                       -{formatCurrency(exp.amount)}
                     </span>
                   </div>
@@ -190,7 +227,6 @@ const Dashboard = () => {
         </main>
       </PullToRefresh>
 
-      <FAB />
       <BottomNav />
     </div>
   );

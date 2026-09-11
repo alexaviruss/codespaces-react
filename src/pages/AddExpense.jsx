@@ -7,7 +7,11 @@ import { db } from "../services/firebase";
 import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getCurrentDate, getCurrentTime } from "../utils/dateHelpers";
 import toast from "react-hot-toast";
-import { IndianRupee, Calendar, Clock, CreditCard, Tag, FileText, Trash2 } from "lucide-react";
+import {
+  IndianRupee, Calendar, Clock, CreditCard, Tag, FileText, Trash2,
+  ChevronDown, ArrowLeft, Loader2, Utensils, Bus, Train, Smartphone,
+  ShoppingBag, Receipt,
+} from "lucide-react";
 
 const CATEGORIES = [
   "Food",
@@ -23,6 +27,19 @@ const CATEGORIES = [
   "Shopping",
   "Other",
 ];
+
+// Fast-access shortcuts for the categories people tap most often -
+// full list is still available in the dropdown below.
+const QUICK_CATEGORIES = [
+  { name: "Food", icon: Utensils },
+  { name: "Travel", icon: Train },
+  { name: "Bus Ticket", icon: Bus },
+  { name: "Grocery", icon: ShoppingBag },
+  { name: "Mobile/DTH Recharge", icon: Smartphone },
+  { name: "Bills", icon: Receipt },
+];
+
+const QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
 
 const AddExpense = () => {
   const { currentUser } = useAuth();
@@ -46,7 +63,7 @@ const AddExpense = () => {
         try {
           const expenseRef = doc(db, "users", currentUser.uid, "expenses", expenseId);
           const expenseSnap = await getDoc(expenseRef);
-          
+
           if (expenseSnap.exists()) {
             const data = expenseSnap.data();
             setCategory(data.category);
@@ -94,19 +111,17 @@ const AddExpense = () => {
       };
 
       if (isEditMode) {
-        // Update existing expense
         const expenseRef = doc(db, "users", currentUser.uid, "expenses", expenseId);
         await updateDoc(expenseRef, expenseData);
         toast.success("Expense updated successfully!");
       } else {
-        // Add new expense
         await addDoc(collection(db, "users", currentUser.uid, "expenses"), {
           ...expenseData,
           createdAt: serverTimestamp(),
         });
         toast.success("Expense added successfully!");
       }
-      
+
       navigate("/expenses");
     } catch (error) {
       console.error("Error saving expense:", error);
@@ -139,7 +154,7 @@ const AddExpense = () => {
         <Header title={isEditMode ? "Edit Expense" : "Add Expense"} />
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin">
-            <div className="h-8 w-8 border-4 border-slate-300 border-t-teal-600 rounded-full"></div>
+            <div className="h-8 w-8 border-4 border-slate-300 dark:border-slate-600 border-t-teal-600 rounded-full"></div>
           </div>
         </div>
         <BottomNav />
@@ -152,8 +167,18 @@ const AddExpense = () => {
       <Header title={isEditMode ? "Edit Expense" : "Add Expense"} />
 
       <main className="px-4 py-4 max-w-md mx-auto">
+        {/* Back link - previously the only way out was the bottom nav,
+            which is jarring if this screen was opened by mistake. */}
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+
         <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-          
+
           {/* Amount Field */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
@@ -171,19 +196,59 @@ const AddExpense = () => {
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 py-2.5 pl-10 pr-4 text-lg font-bold text-slate-900 dark:text-white focus:border-teal-600 focus:bg-white dark:focus:bg-slate-600 focus:outline-none transition-colors"
               />
             </div>
+
+            {/* Quick amount chips - saves reaching for the number pad
+                for common round-number spends. */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {QUICK_AMOUNTS.map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setAmount(String(val))}
+                  className={`rounded-lg px-3 py-1 text-xs font-semibold border transition-all ${
+                    amount === String(val)
+                      ? "border-teal-600 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400"
+                      : "border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  ₹{val}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Category Selector */}
+          {/* Quick Category Chips - one tap for the most-used categories */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
               Category
             </label>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {QUICK_CATEGORIES.map(({ name, icon: Icon }) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setCategory(name)}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-xl border py-2.5 text-[11px] font-semibold transition-all ${
+                    category === name
+                      ? "border-teal-600 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400"
+                      : "border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {name}
+                </button>
+              ))}
+            </div>
+
+            {/* Full dropdown for everything else - now with a visible
+                chevron (appearance-none had removed the native arrow
+                and nothing replaced it, so it looked unclickable). */}
             <div className="relative">
-              <Tag className="absolute left-3 top-3 h-5 w-5 text-slate-400 dark:text-slate-500" />
+              <Tag className="absolute left-3 top-3 h-5 w-5 text-slate-400 dark:text-slate-500 pointer-events-none" />
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 dark:text-white focus:border-teal-600 focus:bg-white dark:focus:bg-slate-600 focus:outline-none transition-colors appearance-none"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 py-2.5 pl-10 pr-9 text-sm font-medium text-slate-900 dark:text-white focus:border-teal-600 focus:bg-white dark:focus:bg-slate-600 focus:outline-none transition-colors appearance-none"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -191,6 +256,7 @@ const AddExpense = () => {
                   </option>
                 ))}
               </select>
+              <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
             </div>
           </div>
 
@@ -300,17 +366,18 @@ const AddExpense = () => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 rounded-xl bg-teal-600 hover:bg-teal-700 py-3 text-sm font-semibold text-white shadow-md focus:outline-none transition-all disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 py-3 text-sm font-semibold text-white shadow-md focus:outline-none transition-all disabled:opacity-50"
             >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading ? (isEditMode ? "Updating..." : "Saving...") : (isEditMode ? "Update Expense" : "Save Expense")}
             </button>
-            
+
             {isEditMode && (
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={loading}
-                className="px-4 rounded-xl bg-red-50 hover:bg-red-100 py-3 text-red-600 shadow-md focus:outline-none transition-all disabled:opacity-50"
+                className="px-4 rounded-xl bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 py-3 text-red-600 dark:text-red-400 shadow-md focus:outline-none transition-all disabled:opacity-50"
                 title="Delete expense"
               >
                 <Trash2 className="h-5 w-5" />
