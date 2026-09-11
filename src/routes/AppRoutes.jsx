@@ -14,6 +14,7 @@ import Udhaari from "../pages/Udhaari";
 import Analytics from "../pages/Analytics";
 import BudgetSettings from "../pages/BudgetSettings";
 import Profile from "../pages/Profile";
+import MonthlyReport from "../pages/MonthlyReport";
 
 const AppRoutes = () => {
   return (
@@ -26,9 +27,11 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/add-expense" element={<AddExpense />} />
+        <Route path="/add-expense/:expenseId" element={<AddExpense />} />
         <Route path="/expenses" element={<ExpenseList />} />
         <Route path="/udhaari" element={<Udhaari />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/report" element={<MonthlyReport />} />
         <Route path="/settings" element={<BudgetSettings />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
