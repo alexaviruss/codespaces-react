@@ -1,0 +1,11 @@
+node_modules
+.git
+.gitignore
+README.md
+.env
+.env.local
+.DS_Store
+dist
+.test.jsx
+*.test.js
+coverage
